@@ -67,7 +67,6 @@ Table::Table(const char* fname, const char* fname_mask, const int axis) {
     for (i=0; i<mask.get_size1(); ++i) {
         if (mask(i) < 0.5) ++n_ref;
     }
-
     ifstream file(fname);
     assert(file);
     file >> size1 >> size2 >> size3;
@@ -109,6 +108,15 @@ Table::Table(const char* fname, const char* fname_mask, const int axis) {
             ++i2;
         }
     }
+}
+//==================================================================//
+Table::Table(const double* table_in, int d1, int d2, int d3) : size1(d1),
+        size2(d2), size3(d3), tab(0x0) {
+
+    assert((size1>0) && (size2>0) && (size3>0));
+    int size = size1 * size2 * size3;
+    tab = new double [size];
+    for (int i=0; i<size; i++) tab[i] = table_in[i];
 }
 //==================================================================//
 Table::~Table() {

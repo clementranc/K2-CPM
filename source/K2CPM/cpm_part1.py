@@ -12,9 +12,22 @@ from K2CPM import wcsfromtpf
 def run_cpm_part1(channel, campaign, num_predictor, num_pca, dis, excl, 
                     flux_lim, input_dir, pixel_list=None, train_lim=None, 
                     output_file=None, output_file_mask=None,  
-                    return_predictor_epoch_masks=False):
+                    return_predictor_epoch_masks=False, campaign_2=None):
+    """
+    CPM part 1 - prepare predictor matrix
+
+    campaign_2 - if specified, then additional predictor matrix is returned 
+    that uses exactly the same pixels.
+
+    The pixel_list is a list (or np.ndarray) of pairs of coordinates, e.g., 
+    for a single pixel it will be [[val_1, val_2]], and for 2 pixels it 
+    will be [[val_1, val_2], [val_3, val_4]].
+    NOTE: the order of these pixel coordinates is different than in most 
+    cases i.e. you will frequenly do [[pixel_y, pixel_x]]. Where pixel_y 
+    runs from 21 to 1044 and pixel_x runs from 13 to 1112.
+    """
 # REMOVED: l2, output_dir, target_epic_num
-# ADDED: output_file, output_file_mask, return_predictor_epoch_masks, channel
+# ADDED: output_file, output_file_mask, return_predictor_epoch_masks, channel, campaign_2
 #def run_cpm_part1(target_epic_num, campaign, num_predictor, l2, num_pca, dis, excl, flux_lim, input_dir, output_dir, pixel_list=None, train_lim=None):
 
     #print(channel, campaign, num_predictor, num_pca, dis, excl, 
@@ -30,8 +43,12 @@ def run_cpm_part1(channel, campaign, num_predictor, num_pca, dis, excl,
     if pixel_list is None:
         raise ValueError("Empty pixel_list in run_cpm_part1()")
     # CHANGE the part below (i.e. implement what is needed)
-    if pixel_list.shape[0] != 1 and (output_file is not None or output_file_mask is not None):
+    if len(pixel_list) != 1 and (output_file is not None or output_file_mask is not None):
         raise ValueError('\n\nCurrently we can deal with only a single pixel at a time if the output file is specified')
+
+    if train_lim is not None:
+        raise ValueError("run_cpm_part1() parameter train_lim has to be None."
+            + " We keep it because of older code")
     tpfdata.TpfData.directory = input_dir
 
     flux_lim_step_down = 0.1
@@ -41,9 +58,15 @@ def run_cpm_part1(channel, campaign, num_predictor, num_pca, dis, excl,
 
     wcs = wcsfromtpf.WcsFromTpf(channel, campaign)
     m_tpfs = multipletpf.MultipleTpf(campaign=campaign)
+    if campaign_2 is not None:
+        m_tpfs_2 = multipletpf.MultipleTpf(campaign=campaign_2)
+    else:
+        m_tpfs_2 = None
 
     out_predictor_matrixes = []
-    out_predictor_epoch_masks = []
+    out_predictor_matrixes_2 = []
+    out_predictor_epoch_masks = [] 
+    out_predictor_epoch_masks_2 = []
 
     for pixel in pixel_list:
         print(pixel[0], pixel[1])
@@ -56,15 +79,25 @@ def run_cpm_part1(channel, campaign, num_predictor, num_pca, dis, excl,
         (epics_to_use_all, _, _) = wcs.get_epics_around_pixel(row=pixel[0], column=pixel[1])
         epics_to_use = epics_to_use_all[:n_use] # THIS HAS TO BE CORRECTED
         m_tpfs.add_tpf_data_from_epic_list(epics_to_use, campaign)
+        if campaign_2 is not None:
+            m_tpfs_2.add_tpf_data_from_epic_list(epics_to_use, campaign_2)
         
-        predictor_matrix = tpf_data.get_predictor_matrix(pixel[0], pixel[1], 
+        result_get_predictor = tpf_data.get_predictor_matrix(pixel[0], pixel[1], 
                                     num_predictor, dis=dis, excl=excl, 
                                     flux_lim=flux_lim, multiple_tpfs=m_tpfs, 
-                                    tpfs_epics=epics_to_use)
+                                    tpfs_epics=epics_to_use, 
+                                    multiple_tpfs_2=m_tpfs_2)
+        if campaign_2 is not None:
+            (predictor_matrix, predictor_matrix_2) = result_get_predictor
+        else:
+            predictor_matrix = result_get_predictor
+        
         while predictor_matrix.shape[1] < num_predictor:
             n_use += 3
             epics_to_use = epics_to_use_all[:n_use]
             m_tpfs.add_tpf_data_from_epic_list(epics_to_use[-3:], campaign)
+            if campaign_2 is not None:
+                m_tpfs_2.add_tpf_data_from_epic_list(epics_to_use[-3:], campaign_2)
 # Re-code stuff below ???
                     #low_lim = flux_lim[0] - flux_lim_step_down
                     #up_lim = flux_lim[1] + flux_lim_step_up
@@ -80,29 +113,50 @@ def run_cpm_part1(channel, campaign, num_predictor, num_pca, dis, excl,
                     #        print('no more pixel at all')
                     #        break
                     #break
-            predictor_matrix = tpf_data.get_predictor_matrix(pixel[0], pixel[1], 
+            result_get_predictor = tpf_data.get_predictor_matrix(pixel[0], pixel[1], 
                                     num_predictor, dis=dis, excl=excl,
                                     flux_lim=(low_lim, up_lim), 
                                     multiple_tpfs=m_tpfs, 
-                                    tpfs_epics=epics_to_use)
+                                    tpfs_epics=epics_to_use, 
+                                    multiple_tpfs_2=m_tpfs_2)
+            if campaign_2 is not None:
+                (predictor_matrix, predictor_matrix_2) = result_get_predictor
+            else:
+                predictor_matrix = result_get_predictor
 
         if num_pca>0:
+            if campaign_2 is not None:
+                raise NotImplementedError("This feature has not been implemented yet")
+                # I'm not sure how exactly combine 2 predictor matrixes and PCA
             pca = PCA(n_components=num_pca, svd_solver='full')
             pca.fit(predictor_matrix)
             predictor_matrix = pca.transform(predictor_matrix)
                 
         out_predictor_matrixes.append(predictor_matrix)
         out_predictor_epoch_masks.append(m_tpfs.predictor_epoch_mask)
+        if campaign_2 is not None:
+            out_predictor_matrixes_2.append(predictor_matrix_2)
+            out_predictor_epoch_masks_2.append(m_tpfs_2.predictor_epoch_mask)
 
         if output_file is not None: 
+            if campaign_2 is not None:
+                raise NotImplementedError("This feature has not been implemented yet")
             matrix_xy.save_matrix_xy(predictor_matrix, output_file)
         if output_file_mask is not None:
+            if campaign_2 is not None:
+                raise NotImplementedError("This feature has not been implemented yet")
             np.savetxt(output_file_mask, m_tpfs.predictor_epoch_mask, fmt='%r')
 
     if return_predictor_epoch_masks:
-        return (out_predictor_matrixes, out_predictor_epoch_masks)
+        if campaign_2 is not None:
+            return (out_predictor_matrixes, out_predictor_matrixes_2, out_predictor_epoch_masks, out_predictor_epoch_masks_2)
+        else:
+            return (out_predictor_matrixes, out_predictor_epoch_masks)
     else:
-        return out_predictor_matrixes
+        if campaign_2 is not None:
+            return (out_predictor_matrixes, out_predictor_matrixes_2)
+        else:
+            return out_predictor_matrixes
 
 
 def main():

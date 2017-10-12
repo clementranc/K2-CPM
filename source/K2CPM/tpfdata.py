@@ -129,6 +129,12 @@ class TpfData(object):
 
     def check_pixel_covered(self, column, row):
         """check if we have data for given (column,row) pixel"""
+        if (not isinstance(column, int) and 
+                not isinstance(column, np.integer)) or (
+                not isinstance(row, int) and not isinstance(row, np.integer)):
+            raise TypeError('Pixel coordinates must be of int type\n' +
+                'got: {:} {:}, {:} {:}'.format(column, type(column), row,
+                type(row)))
         if not self.check_pixel_in_tpf(column, row):
             return False
         mask_value = self.mask[row - self.reference_row, column - self.reference_column]
@@ -204,9 +210,24 @@ class TpfData(object):
                 out[i_row+half_size][i_column+half_size] = self.get_flux_for_pixel(
                                         row, column, apply_epoch_mask=apply_epoch_mask)
         return out
-    
-    def get_predictor_matrix(self, target_x, target_y, num, dis=16, excl=5, flux_lim=(0.8, 1.2), multiple_tpfs=None, tpfs_epics=None):
-        """prepare predictor matrix"""
+
+    def get_fluxes_for_pixel_list(self, pixel_list, apply_epoch_mask=False):
+        """for pixels from pixel_list get the flux and return it in 
+        a list of pixels"""
+        out = []
+        for (x, y) in pixel_list:
+            out.append(self.get_flux_for_pixel(row=y, column=x))
+        return out
+
+    def get_predictor_matrix(self, target_x, target_y, num, dis=16, excl=5, 
+                            flux_lim=(0.8, 1.2), multiple_tpfs=None, 
+                            tpfs_epics=None, multiple_tpfs_2=None):
+        """prepare predictor matrix
+        
+        If multiple_tpfs_2 is specified then the same pixels from this set 
+        is returned. Standard usage is providing the other subcampaign with 
+        exactly the same epic ids.
+        """
         (self.pixel_row, self.pixel_col) = multiple_tpfs.get_rows_columns(tpfs_epics)
         self.pixel_flux = multiple_tpfs.get_fluxes(tpfs_epics)
 
@@ -230,13 +251,18 @@ class TpfData(object):
         distance2 = distance2_row + distance2_col
         dis_mask = (distance2 > dis**2)
         distance2 = distance2[dis_mask]
-
         index = np.argsort(distance2, kind="mergesort")
 
-        pixel_flux = self.pixel_flux[:,pixel_mask][:,dis_mask]
-        predictor_flux = pixel_flux[:,index[:num]].astype(float)
+        pixel_numbers = np.arange(self.pixel_flux.shape[1])
+        pixel_indexes = pixel_numbers[pixel_mask][dis_mask][index[:num]]
+        predictor_flux = self.pixel_flux[:, pixel_indexes]
 
-        return predictor_flux
+        if multiple_tpfs_2 is not None:
+            pixel_flux_2 = multiple_tpfs_2.get_fluxes(tpfs_epics)
+            predictor_flux_2 = pixel_flux_2[:, pixel_indexes]
+            return (predictor_flux, predictor_flux_2)
+        else:
+            return predictor_flux
 
     def save_pixel_curve(self, row, column, file_name, full_time=True):
         """saves the time vector and the flux for a single pixel into a file"""

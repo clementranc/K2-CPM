@@ -46,6 +46,7 @@ class Table {
     Table(const Table&);
     explicit Table(const char*);
     explicit Table(const char*, const char*, const int);
+    explicit Table(const double*, int d1, int d2=1, int d3=1);
 
     // Destructor
     virtual ~Table();
@@ -59,6 +60,8 @@ class Table {
     int get_size1() const { return size1; };
     int get_size2() const { return size2; };
     int get_size3() const { return size3; };
+
+    double raw_table(int i) const { return tab[i]; };
 
     double operator()(int i, int j=0, int k=0) const {
         assert ((i>=0) && (i<size1));

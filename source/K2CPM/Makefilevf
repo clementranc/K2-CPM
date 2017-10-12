@@ -1,0 +1,29 @@
+F77     = gfortran-mp-6
+CC      = gcc-mp-6
+OPT     = -O -Bstatic
+#OPT    = -O -i_dynamic
+#INCL    = -I/opt/intel/mpi/3.0/include
+#OPT     = -L/opt/intel/mpi/3.0/lib -lmpiif -lmpi
+#OPT    = -L/opt/intel/mpi/3.0/lib -Xlinker -rpath -lmpi -lmpiif -lmpigi -lrt -lpthread -ldl
+
+fcode.exe:  main.o pspl_example.o table.o matrix.o cpmforf.o
+
+	$(F77) $(INCL) $(OPT) -o fcode.exe main.o pspl_example.o -lstdc++ cpmforf.o table.o matrix.o
+
+main.o: main.f
+	$(F77) $(INCL) $(OPT) -c main.f
+
+pspl_example.o: pspl_example.f
+	$(F77) $(INCL) $(OPT) -c pspl_example.f
+
+table.o: table.cpp
+	$(CC) -c -lstdc++ -O2 table.cpp
+
+matrix.o: matrix.cpp
+	$(CC) -c -lstdc++ -O2 matrix.cpp
+
+cpmforf.o: cpmforf.cpp
+	$(CC) -c -lstdc++ -O2 cpmforf.cpp
+
+clean:
+	rm -f *.o fcode.exe

@@ -190,7 +190,7 @@ c     ------------------------
       close(1)
 
  105  npr = 0
-      fname = trim(adjustl(prefix))//'pre_matrix_xy.dat'
+      fname = trim(adjustl(prefix))//'predictor_xy.dat'
       open(unit=1,file=fname,status='old',err=108)
       do j=1,9999
           do i=1,nprdt2

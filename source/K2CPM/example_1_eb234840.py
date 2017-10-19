@@ -117,7 +117,7 @@ if __name__ == "__main__":
     print(file_name)
 
     # Now run cpm_part_2:
-    l2 = 1.e4 # This is regularization strnegth.
+    l2 = 1.e4 # This is regularization strength.
     train_limits = [7508., 7540.] # We train on data before 2457508.
     ok = ((tpf.jd_short[np.isfinite(tpf.jd_short)] < train_limits[0])
                 | (tpf.jd_short[np.isfinite(tpf.jd_short)] > train_limits[1]))

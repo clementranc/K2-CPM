@@ -29,7 +29,7 @@ if __name__ == "__main__":
     # the star coordinates and that it is in channel 31, but you can find 
     # the channel this way:
     # >>> import K2fov
-    # >>> K2fov.fields.getKeplerFov(9)pickAChannel(ra, dec)
+    # >>> K2fov.fields.getKeplerFov(9).pickAChannel(ra, dec)
     channel = 31
     campaign = 91
     campaign_train = 92
